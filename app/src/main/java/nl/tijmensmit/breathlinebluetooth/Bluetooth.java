@@ -79,7 +79,6 @@ public final class Bluetooth {
         return intentFilter;
     }
 
-
     public void pause() {
         context.unregisterReceiver(mGattUpdateReceiver);
     }
