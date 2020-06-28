@@ -19,14 +19,18 @@ import android.util.Log;
 import java.util.List;
 import java.util.UUID;
 
-public class BLEService extends Service {
-    private final static String TAG = BLEService.class.getSimpleName();
+import static androidx.core.app.ActivityCompat.startActivityForResult;
+
+public class BluetoothConnectionService extends Service {
+    private final static String TAG = BluetoothConnectionService.class.getSimpleName();
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
     private int mConnectionState = STATE_DISCONNECTED;
+
+    private static final int REQUEST_ENABLE_BT = 1;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
@@ -133,8 +137,8 @@ public class BLEService extends Service {
     }
 
     public class LocalBinder extends Binder {
-        BLEService getService() {
-            return BLEService.this;
+        BluetoothConnectionService getService() {
+            return BluetoothConnectionService.this;
         }
     }
 
@@ -159,7 +163,18 @@ public class BLEService extends Service {
      *
      * @return Return true if the initialization is successful.
      */
-    public boolean initialize() {
+    public boolean initialize(BluetoothAdapter mBluetoothAdapter) {
+        this.mBluetoothAdapter = mBluetoothAdapter;
+        if (mBluetoothAdapter == null) {
+            Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
+            return false;
+        }
+
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+
         // For API level 18 and above, get a reference to BluetoothAdapter through
         // BluetoothManager.
         if (mBluetoothManager == null) {
@@ -170,28 +185,30 @@ public class BLEService extends Service {
             }
         }
 
-        mBluetoothAdapter = mBluetoothManager.getAdapter();
-        if (mBluetoothAdapter == null) {
-            Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
-            return false;
-        }
-
         return true;
+    }
+
+    private void startActivityForResult(Intent enableBtIntent, int requestEnableBt) {
     }
 
     /**
      * Connects to the GATT server hosted on the Bluetooth LE device.
      *
-     * @param address The device address of the destination device.
+     * address The device address of the destination device.
      *
      * @return Return true if the connection is initiated successfully. The connection result
      *         is reported asynchronously through the
      *         {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
      *         callback.
      */
-    public boolean connect(final String address) {
-        if (mBluetoothAdapter == null || address == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
+    public boolean connect(final BluetoothDevice mDevice) {
+        String address = mDevice.getAddress();
+        if (address == null) {
+            Log.w(TAG, "BluetoothAdapter unspecified address.");
+            return false;
+        }
+        if (mBluetoothAdapter == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized");
             return false;
         }
 
@@ -207,14 +224,13 @@ public class BLEService extends Service {
             }
         }
 
-        final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
-        if (device == null) {
+        if (mDevice == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
         }
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
-        mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+        mBluetoothGatt = mDevice.connectGatt(this, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDeviceAddress = address;
         mConnectionState = STATE_CONNECTING;
@@ -292,7 +308,6 @@ public class BLEService extends Service {
      */
     public List<BluetoothGattService> getSupportedGattServices() {
         if (mBluetoothGatt == null) return null;
-
         return mBluetoothGatt.getServices();
     }
 }
