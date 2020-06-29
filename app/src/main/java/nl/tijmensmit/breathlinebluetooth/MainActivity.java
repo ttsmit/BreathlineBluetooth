@@ -6,6 +6,8 @@ import android.app.Activity;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.ScanResult;
@@ -32,9 +34,11 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.TextView;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,6 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private String mDeviceAddress;
     private boolean mConnected = false;
 
+    private String UUID_ACCELEROMETER_X = "68d5151b-d0ec-4683-80e7-3ca4dd42034d";
+    private String UUID_ACCELEROMETER_Y = "68d5151c-d0ec-4683-80e7-3ca4dd42034d";
+    private String UUID_ACCELEROMETER_Z = "68d5151d-d0ec-4683-80e7-3ca4dd42034d";
+
     private BluetoothAdapter bluetoothAdapter;
     private static final int REQUEST_ENABLE_BT = 1;
 
@@ -62,7 +70,9 @@ public class MainActivity extends AppCompatActivity {
                 Log.e(TAG, "Unable to Initialize");
 //                finish();
             }
-//            mBluetoothLeService.connect(mDeviceAddress);
+            if(mDevice != null){
+                connect(mDevice);
+            }
         }
 
         @Override
@@ -82,14 +92,48 @@ public class MainActivity extends AppCompatActivity {
                 mConnected = false;
                 // ...
             } else if (BluetoothConnectionService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)){
-                Log.d(TAG, "Supported Services:" + mBluetoothLeService.getSupportedGattServices());
-                //Recieve gattService as List<BluetoothGattService>
+                List<BluetoothGattService> supportedGattServices = mBluetoothLeService.getSupportedGattServices();
+                enableNotification(supportedGattServices);
+                Log.d(TAG, "Supported Services:" + supportedGattServices);
             } else if (BluetoothConnectionService.ACTION_DATA_AVAILABLE.equals(action)){
-                Log.d(TAG, "Extra Data Available:" + BluetoothConnectionService.EXTRA_DATA);
-                // Recieve data as String
+                String data = intent.getStringExtra(BluetoothConnectionService.EXTRA_DATA);
+                int value = 0;
+                if(data != null && data.length() != 0){
+                    value = Integer.parseInt(data, 16);
+
+                }
+                String UUID = intent.getStringExtra(BluetoothConnectionService.EXTRA_CHARACTERISTIC);
+                updateValue(UUID, value);
             }
         }
     };
+
+    private void updateValue(String uuid, int value) {
+        float reading = value/100;
+        reading -= 100;
+        String readingAsText = Float.toString(reading);
+        if(uuid.equals(UUID_ACCELEROMETER_X)){
+            TextView AccelerometerXText =new TextView(this);
+            AccelerometerXText=(TextView)findViewById(R.id.textView_X);
+            AccelerometerXText.setText(readingAsText);
+        }
+    }
+
+    private void enableNotification(List<BluetoothGattService> supportedGattServices) {
+        for (BluetoothGattService gattService : supportedGattServices){
+            List<BluetoothGattCharacteristic> supportedCharacteristics = gattService.getCharacteristics();
+            for(BluetoothGattCharacteristic gattCharacteristic : supportedCharacteristics){
+                byte[] value = gattCharacteristic.getValue();
+                String UUID = gattCharacteristic.getUuid().toString();
+                if( UUID.equals(UUID_ACCELEROMETER_X) || UUID.equals(UUID_ACCELEROMETER_Y) || UUID.equals(UUID_ACCELEROMETER_Z)){
+//                    Log.d(TAG, "Characteristic Value:" + value);
+                    mBluetoothLeService.setCharacteristicNotification(gattCharacteristic, true);
+                }
+
+            }
+        }
+
+    }
 
 
     @Override
@@ -123,8 +167,8 @@ public class MainActivity extends AppCompatActivity {
                 Matcher m = p.matcher(deviceName);
                 boolean b = m.matches();
                 if(m.matches()) {
-                    found = true;
-                    connect(currentDevice);
+//                    found = true;
+//                    connect(currentDevice);
                     break;
                 }
             }
@@ -138,8 +182,8 @@ public class MainActivity extends AppCompatActivity {
     void scanForDevices() {
         deviceManager = getSystemService(CompanionDeviceManager.class);
         deviceFilter = new BluetoothLeDeviceFilter.Builder()
-                .setNamePattern(Pattern.compile("BreathLine.*"))
-                .setRenameFromName(null, null, 0, 10)
+//                .setNamePattern(Pattern.compile("BreathLine.*"))
+//                .setRenameFromName(null, null, 0, 10)
                 .build();
         pairingRequest = new AssociationRequest.Builder()
 //                .addDeviceFilter(deviceFilter)
@@ -189,9 +233,6 @@ public class MainActivity extends AppCompatActivity {
         mBluetoothLeService = null;
     }
 
-    public void showAccelerometerData(){
-    }
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -213,6 +254,9 @@ public class MainActivity extends AppCompatActivity {
         if (mBluetoothLeService != null) {
             final boolean result = mBluetoothLeService.connect(device);
             Log.d(TAG, "Connect request result:" + result);
+//            final BluetoothGattCharacteristic characteristic =
+//                    mGattCharacteristics.get(groupPosition).get(childPosition);
+//            mBluetoothLeService.setCharacteristicNotification(xAccel, true);
         } else {
             Log.d(TAG, "Not Connected to BluetoothConnectionService");
         }
@@ -226,5 +270,7 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(BluetoothConnectionService.ACTION_DATA_AVAILABLE);
         return intentFilter;
     }
+
+
 
 }
