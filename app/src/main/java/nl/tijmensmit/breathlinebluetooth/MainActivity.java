@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateValue(String uuid, int value) {
         float reading = value/100;
-        reading -= 100;
+        reading = reading - 100;
         String readingAsText = Float.toString(reading);
         if(uuid.equals(UUID_ACCELEROMETER_X)){
             TextView AccelerometerXText =new TextView(this);
@@ -165,7 +165,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, deviceName);
                 Pattern p = Pattern.compile("Breath.ine.*");
                 Matcher m = p.matcher(deviceName);
-                boolean b = m.matches();
                 if(m.matches()) {
 //                    found = true;
 //                    connect(currentDevice);
@@ -182,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
     void scanForDevices() {
         deviceManager = getSystemService(CompanionDeviceManager.class);
         deviceFilter = new BluetoothLeDeviceFilter.Builder()
-//                .setNamePattern(Pattern.compile("BreathLine.*"))
+                .setNamePattern(Pattern.compile("BreathLine.*"))
 //                .setRenameFromName(null, null, 0, 10)
                 .build();
         pairingRequest = new AssociationRequest.Builder()
@@ -241,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
             // User has chosen to pair with the Bluetooth device.
 //            android.bluetooth.le.ScanResult deviceToPair =
 //                    data.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE);
-//            Log.d(TAG, "DeviceToPair:"+deviceToPair);
+////            Log.d(TAG, "DeviceToPair:"+deviceToPair);
 //            assert deviceToPair != null;
 //            BluetoothDevice mDevice = deviceToPair.getDevice();
             mDevice = data.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE);
